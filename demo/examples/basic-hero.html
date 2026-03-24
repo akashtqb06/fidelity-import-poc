@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Basic Hero — TransformerCorp</title>
+  <!-- Tailwind CDN (should be stripped from target, replaced by canonical runtime) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            brand: "#6d28d9",
+            "brand-light": "#ede9fe",
+            "brand-dark": "#2e1065"
+          },
+          fontFamily: {
+            display: ["Inter", "system-ui", "sans-serif"],
+            body: ["Roboto", "system-ui", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Source-specific font (should survive into target if not CDN-blocked) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Roboto&display=swap">
+</head>
+<body class="bg-brand-light min-h-screen font-body">
+
+  <nav class="bg-brand text-white px-8 py-4 flex items-center justify-between shadow-lg">
+    <span class="text-xl font-display font-bold tracking-tight">TransformerCorp</span>
+    <div class="flex gap-6 text-sm font-medium">
+      <a href="#" class="hover:text-brand-light transition-colors">Products</a>
+      <a href="#" class="hover:text-brand-light transition-colors">Pricing</a>
+      <a href="#" class="bg-white text-brand px-4 py-1.5 rounded-full font-semibold hover:bg-brand-light transition-colors">Get Started</a>
+    </div>
+  </nav>
+
+  <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+    <span class="inline-block bg-brand/10 text-brand text-sm font-semibold px-4 py-1.5 rounded-full mb-6 tracking-wide">
+      NOW IN PUBLIC BETA
+    </span>
+    <h1 class="text-5xl font-display font-extrabold text-brand-dark leading-tight mb-6">
+      Transform Your Data<br/>Pipeline in Minutes
+    </h1>
+    <p class="text-lg text-brand-dark/70 max-w-2xl mx-auto mb-10 leading-relaxed">
+      TransformerCorp unifies your messy data sources into clean, queryable streams.
+      No code. No config. Just results.
+    </p>
+    <div class="flex gap-4 justify-center flex-wrap">
+      <button class="bg-brand text-white px-8 py-3 rounded-xl font-semibold text-base hover:bg-brand-dark transition-colors shadow-md">
+        Start Free Trial
+      </button>
+      <button class="border-2 border-brand text-brand px-8 py-3 rounded-xl font-semibold text-base hover:bg-brand-light transition-colors">
+        Watch Demo
+      </button>
+    </div>
+  </section>
+
+  <section class="bg-white border-t border-brand/10 py-16 px-6">
+    <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div class="text-center p-6 rounded-2xl bg-brand-light">
+        <div class="text-4xl mb-3">⚡</div>
+        <h3 class="text-lg font-display font-bold text-brand-dark mb-2">10× Faster Ingestion</h3>
+        <p class="text-sm text-brand-dark/60">Batch and stream data at scale without infrastructure headaches.</p>
+      </div>
+      <div class="text-center p-6 rounded-2xl bg-brand-light">
+        <div class="text-4xl mb-3">🔒</div>
+        <h3 class="text-lg font-display font-bold text-brand-dark mb-2">Zero-Trust Security</h3>
+        <p class="text-sm text-brand-dark/60">End-to-end encryption with granular role-based access controls.</p>
+      </div>
+      <div class="text-center p-6 rounded-2xl bg-brand-light">
+        <div class="text-4xl mb-3">🔗</div>
+        <h3 class="text-lg font-display font-bold text-brand-dark mb-2">200+ Integrations</h3>
+        <p class="text-sm text-brand-dark/60">Connect to Snowflake, Databricks, Kafka, and every major SaaS.</p>
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>

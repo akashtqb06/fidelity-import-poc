@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Blog Article — TypographyCo</title>
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script id="tailwind-config">
+    {
+      darkMode: "media",
+      plugins: ["typography"],
+      theme: {
+        extend: {
+          colors: {
+            ink: "#1a1a2e",
+            "ink-muted": "#4a4a6a",
+            paper: "#fefef2",
+            accent: "#e63946"
+          },
+          fontFamily: {
+            display: ["Georgia", "Times New Roman", "serif"],
+            body: ["Palatino Linotype", "Book Antiqua", "serif"]
+          },
+          typography: {
+            DEFAULT: {
+              css: {
+                color: "#1a1a2e",
+                "a": { color: "#e63946" },
+                "h1,h2,h3": { fontFamily: "Georgia, serif" }
+              }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Custom font reset - should survive into target (has @font-face simulation) -->
+  <style>
+    :root {
+      --font-editorial: "Georgia", serif;
+      --color-ink: #1a1a2e;
+      --color-paper: #fefef2;
+      --color-accent: #e63946;
+      --reading-width: 68ch;
+    }
+    @font-face {
+      font-family: "Editorial";
+      src: local("Georgia");
+      font-display: swap;
+    }
+    body {
+      background: var(--color-paper);
+      color: var(--color-ink);
+      font-family: var(--font-editorial);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-paper text-ink font-body">
+
+  <header class="border-b border-ink/10 px-8 py-4 flex items-center justify-between">
+    <div class="text-2xl font-display font-bold tracking-tight text-ink">
+      The <span class="text-accent">Dispatch</span>
+    </div>
+    <nav class="flex gap-6 text-sm text-ink-muted">
+      <a href="#" class="hover:text-accent transition-colors">Technology</a>
+      <a href="#" class="hover:text-accent transition-colors">Culture</a>
+      <a href="#" class="hover:text-accent transition-colors">Opinion</a>
+    </nav>
+  </header>
+
+  <main class="max-w-[68ch] mx-auto px-6 py-12">
+    <div class="mb-8">
+      <span class="text-xs font-bold uppercase tracking-widest text-accent">Technology</span>
+      <h1 class="text-4xl font-display font-bold text-ink mt-3 mb-4 leading-tight">
+        Why the Next Wave of AI Will Be Built on Composable Infrastructure
+      </h1>
+      <div class="flex items-center gap-3 text-sm text-ink-muted">
+        <span>by <strong>Alexandra Chen</strong></span>
+        <span>·</span>
+        <time>March 23, 2026</time>
+        <span>·</span>
+        <span>8 min read</span>
+      </div>
+    </div>
+
+    <div class="prose prose-lg max-w-none">
+      <p>
+        The infrastructure wars of the early 2020s taught us one thing: <strong>composability beats monolith</strong>.
+        While the big players were busy locking customers into walled gardens, a quieter revolution
+        was brewing in the world of open-source tooling.
+      </p>
+      <p>
+        Today, the teams shipping the most ambitious AI products are not using one vendor's stack end-to-end.
+        They're stitching together best-in-class primitives — vector databases from one provider, inference
+        from another, observability from a third — and gluing them with clean, contract-first APIs.
+      </p>
+      <h2>The Three Laws of Composable AI</h2>
+      <p>
+        First: <em>stateless compute</em>. Every function that touches a model must be side-effect free.
+        Second: <em>immutable artifacts</em>. Embeddings, fine-tuned weights, and evaluation datasets
+        are versioned facts, not mutable resources. Third: <em>contract-first integrations</em>.
+        Your AI pipeline is only as reliable as its weakest interface.
+      </p>
+      <blockquote>
+        "The future belongs to teams who can reason about their AI stack as clearly
+        as they reason about their data model."
+      </blockquote>
+      <p>
+        The evidence is already there: companies that invested in composable infrastructure
+        during the 2024 model commodity wave cut their iteration cycles in half and reduced
+        inference costs by 60% compared to single-vendor deployments.
+      </p>
+    </div>
+  </main>
+
+</body>
+</html>
