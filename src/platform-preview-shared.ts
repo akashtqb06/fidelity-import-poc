@@ -1,10 +1,20 @@
 /**
- * platform-preview-shared.ts — POC Edition
+ * platform-preview-shared.ts — POC Edition (CDN-Free Target)
  *
  * Implements all three fidelity POC steps:
  *   Step 1: Selective stylesheet forwarding (classifyStylesheetHref + selective sanitizeTargetHtml)
- *   Step 2: Deep-merge Tailwind config (extractSourceTailwindConfig + buildTailwindRuntimeConfig)
- *   Step 3: Thread sourceTailwindConfig through buildPlatformTargetDocument + plugin CDN injection
+ *   Step 2: Source config extraction + canonical CSS variable block injection
+ *   Step 3: buildPlatformTargetDocument — CDN in source preview is fine;
+ *            target preview uses app's compiled platform.css + CSS var override (no CDN).
+ *
+ * Architecture:
+ *   Source iframe  → raw imported HTML (CDN Tailwind OK — this shows "as-imported" fidelity)
+ *   Target iframe  → <link href="{platformCssSrc}"> + <style id="lmnas-canonical-vars"> at end of body
+ *
+ * The CSS cascade in the target:
+ *   1. Forwarded source <link> stylesheets  (fonts, source CSS vars, resets)
+ *   2. Platform compiled CSS               (all Tailwind utilities + default @theme vars)
+ *   3. <style id="lmnas-canonical-vars">   (canonical token override — LAST, always wins)
  */
 
 import type { PlatformPreviewAssets, StudioTheme } from "./types.js";
@@ -12,8 +22,6 @@ import type { PlatformPreviewAssets, StudioTheme } from "./types.js";
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-export const DEFAULT_TAILWIND_RUNTIME_SRC = "https://cdn.tailwindcss.com?plugins=forms,container-queries";
 
 /**
  * Substrings whose presence in a stylesheet href means the sheet should be
@@ -36,16 +44,17 @@ export const TAILWIND_CDN_BLOCKLIST_PATTERNS: readonly string[] = [
 ] as const;
 
 /**
- * Known Tailwind plugin names → their CDN <script> src on cdn.tailwindcss.com.
- * Only the official first-party plugins that ship as standalone CDN bundles
- * are listed here. Unknown/custom plugins are logged as theme debt.
+ * Known Tailwind first-party plugin names (v4 compatible).
+ * Used for theme debt detection — if a source component requires a plugin
+ * listed here, it is pre-compiled into the platform CSS via @plugin.
+ * Unknown plugin names not in this set are flagged as theme debt.
  */
-export const KNOWN_TAILWIND_PLUGIN_CDN: Readonly<Record<string, string>> = {
-  typography: "https://cdn.tailwindcss.com/typography.js",
-  forms: "https://cdn.tailwindcss.com/forms.js",
-  "container-queries": "https://cdn.tailwindcss.com/container-queries.js",
-  "aspect-ratio": "https://cdn.tailwindcss.com/aspect-ratio.js"
-} as const;
+export const KNOWN_TAILWIND_PLUGINS: ReadonlySet<string> = new Set([
+  "typography",
+  "forms",
+  "container-queries",
+  "aspect-ratio"
+]);
 
 // ---------------------------------------------------------------------------
 // Step 1 helpers — stylesheet classification
@@ -58,7 +67,7 @@ export const KNOWN_TAILWIND_PLUGIN_CDN: Readonly<Record<string, string>> = {
  *
  * @param href               - The href attribute value of the <link> tag.
  * @param additionalPatterns - Extra substrings to treat as block-triggers
- *                             (e.g. the host's own runtimeSrc origin).
+ *                             (e.g. the host's own platformCssSrc path).
  */
 export function classifyStylesheetHref(
   href: string,
@@ -116,7 +125,8 @@ export function extractSourceTailwindConfig(html: string): Record<string, unknow
   }
 
   // Strategy 3: window.tailwind.config = { … }
-  const windowConfigMatch = /window\.tailwind(?:\.config)?\s*=\s*window\.tailwind(?:\.config)?\s*\|\|\s*\{\s*\};\s*window\.tailwind\.config\s*=\s*(\{[\s\S]*?\});/i.exec(html) ??
+  const windowConfigMatch =
+    /window\.tailwind(?:\.config)?\s*=\s*window\.tailwind(?:\.config)?\s*\|\|\s*\{\s*\};\s*window\.tailwind\.config\s*=\s*(\{[\s\S]*?\});/i.exec(html) ??
     /window\.tailwind\.config\s*=\s*(\{[\s\S]*?\});/i.exec(html);
   if (windowConfigMatch?.[1]) {
     const result = evalObjectLiteral(windowConfigMatch[1].trim());
@@ -201,164 +211,78 @@ function fontFamilyArray(theme: StudioTheme | null): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — Deep-merge Tailwind runtime config
+// Step 2 — canonical CSS variables block
 // ---------------------------------------------------------------------------
 
 /**
- * Builds the window.tailwind.config script block.
+ * Builds the canonical CSS variable override block for the target preview.
  *
- * Merge order (source first, canonical always wins):
- *   - darkMode:             source ?? "class"
- *   - plugins:              deduplicated union of source + canonical [] (no canonical plugins by default)
- *   - theme.extend.colors:  { ...sourceColors, ...canonicalColors }
- *   - theme.extend.fontFamily: { ...sourceFontFamily, display: canonicalDisplay }
- *   - theme.extend.borderRadius: { ...sourceRadius, ...canonicalRadius }
- *   - theme.extend (other): { ...sourceExtend, ...canonicalExtend }
- *   - theme (non-extend):   { ...sourceTheme, ...canonicalNonExtend }
+ * Returns a <style id="lmnas-canonical-vars"> block that re-declares all
+ * StudioTheme token CSS variables. This is injected at the END of the target
+ * <body> so it is last in the document cascade and always overrides any
+ * source :root declarations.
  *
- * No hardcoded color/font/spacing values — all canonical values are read
- * exclusively from the StudioTheme token map.
+ * Uses Tailwind v4 --color-* naming convention so platform utility classes
+ * (bg-primary, text-foreground-light, etc.) pick up the overridden values.
  *
- * @param theme                - Canonical StudioTheme (read-only; never mutated).
- * @param sourceConfigOverrides - Extracted source tailwind config (may be {}).
+ * Replaces the old window.tailwind.config injection — no CDN, no JS runtime.
+ *
+ * @param theme - Canonical StudioTheme. If null, returns empty string.
  */
-export function buildTailwindRuntimeConfig(
-  theme: StudioTheme | null,
-  sourceConfigOverrides: Record<string, unknown> = {}
-): string {
-  // ── Canonical token values (all derived from theme, no literals) ──────────
-  const canonicalPrimary = themeTokenValue(theme, ["primary", "accent"], "#135bec", 0);
-  const canonicalBackgroundLight = themeTokenValue(
-    theme,
-    ["background-light", "surface-light", "surface", "background", "bg"],
-    "#f6f6f8",
-    1
-  );
-  const canonicalBackgroundDark = themeTokenValue(
-    theme,
-    ["background-dark", "surface-dark", "background", "bg"],
-    "#101622",
-    2
-  );
-  const canonicalTextLight = themeTokenValue(
-    theme,
-    ["text-light", "foreground-light", "text", "foreground"],
-    "#0f172a"
-  );
-  const canonicalTextDark = themeTokenValue(
-    theme,
-    ["text-dark", "foreground-dark", "text", "foreground"],
-    "#e2e8f0"
-  );
-  const canonicalDisplayFont = fontFamilyArray(theme);
-  const canonicalRadiusDefault = themeTokenValue(theme, ["radius.default", "radius"], "0.25rem");
-  const canonicalRadiusLg = themeTokenValue(theme, ["radius.lg", "radius"], "0.5rem");
-  const canonicalRadiusXl = themeTokenValue(theme, ["radius.xl", "radius"], "0.75rem");
-  const canonicalRadiusFull = themeTokenValue(theme, ["radius.full", "radius"], "9999px");
-
-  // ── Named canonical color/extend objects (no inline literals) ────────────
-  const canonicalColors: Record<string, string> = {
-    primary: canonicalPrimary,
-    "background-light": canonicalBackgroundLight,
-    "background-dark": canonicalBackgroundDark,
-    "foreground-light": canonicalTextLight,
-    "foreground-dark": canonicalTextDark
-  };
-
-  const canonicalBorderRadius: Record<string, string> = {
-    DEFAULT: canonicalRadiusDefault,
-    lg: canonicalRadiusLg,
-    xl: canonicalRadiusXl,
-    full: canonicalRadiusFull
-  };
-
-  const canonicalFontFamily: Record<string, string[]> = {
-    display: canonicalDisplayFont
-  };
-
-  // ── Extract source sections safely ────────────────────────────────────────
-  const sourceDarkMode = isString(sourceConfigOverrides["darkMode"])
-    ? sourceConfigOverrides["darkMode"]
-    : "class";
-
-  const sourcePlugins: unknown[] = Array.isArray(sourceConfigOverrides["plugins"])
-    ? (sourceConfigOverrides["plugins"] as unknown[])
-    : [];
-
-  const sourceTheme = isRecord(sourceConfigOverrides["theme"])
-    ? sourceConfigOverrides["theme"]
-    : {};
-
-  const sourceExtend = isRecord(sourceTheme["extend"]) ? sourceTheme["extend"] : {};
-
-  const sourceColors = isRecord(sourceExtend["colors"])
-    ? (sourceExtend["colors"] as Record<string, string>)
-    : {};
-
-  const sourceFontFamily = isRecord(sourceExtend["fontFamily"])
-    ? (sourceExtend["fontFamily"] as Record<string, string[]>)
-    : {};
-
-  const sourceRadius = isRecord(sourceExtend["borderRadius"])
-    ? (sourceExtend["borderRadius"] as Record<string, string>)
-    : {};
-
-  // ── Build merged extend (source first, canonical on top) ─────────────────
-  const mergedExtend: Record<string, unknown> = {
-    // Carry all source extend keys that aren't explicitly overridden below
-    ...sourceExtend,
-    // Canonical wins for these specific extend keys
-    colors: { ...sourceColors, ...canonicalColors },
-    fontFamily: { ...sourceFontFamily, ...canonicalFontFamily },
-    borderRadius: { ...sourceRadius, ...canonicalBorderRadius }
-  };
-
-  // ── Build merged theme (non-extend source keys, then canonical extend) ────
-  const sourceThemeWithoutExtend = Object.fromEntries(
-    Object.entries(sourceTheme).filter(([k]) => k !== "extend")
-  );
-
-  const mergedTheme: Record<string, unknown> = {
-    ...sourceThemeWithoutExtend,
-    extend: mergedExtend
-  };
-
-  // ── Deduplicate plugins by string identity / reference ───────────────────
-  const deduplicatedPlugins = deduplicatePlugins(sourcePlugins);
-
-  // ── Final config ─────────────────────────────────────────────────────────
-  const config = {
-    darkMode: sourceDarkMode,
-    plugins: deduplicatedPlugins,
-    theme: mergedTheme
-  };
-
-  return [
-    `<script id="lmnas-preview-tailwind-config">`,
-    `window.tailwind = window.tailwind || {}; window.tailwind.config = ${JSON.stringify(config)};`,
-    `</script>`
-  ].join("");
-}
-
-function isString(value: unknown): value is string {
-  return typeof value === "string";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function deduplicatePlugins(plugins: unknown[]): unknown[] {
-  const seen = new Set<unknown>();
-  const result: unknown[] = [];
-  for (const plugin of plugins) {
-    const key = typeof plugin === "string" ? plugin : JSON.stringify(plugin);
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(plugin);
-    }
+export function buildCanonicalCssVarsBlock(theme: StudioTheme | null): string {
+  if (!theme || theme.tokens.length === 0) {
+    return "";
   }
-  return result;
+
+  const declarations = theme.tokens
+    .map((token) => {
+      const rawVar = token.cssVariable.startsWith("--") ? token.cssVariable : `--${token.cssVariable}`;
+      // Map token CSS variables to Tailwind v4 --color-* / --font-family-* namespace
+      // so that compiled utility classes (bg-primary, text-foreground-light, etc.)
+      // pick up the overridden values via var(--color-primary) etc.
+      const twVar = toTailwindVar(rawVar, token.category);
+      return `${twVar}:${token.value};`;
+    })
+    .join("");
+
+  return `<style id="lmnas-canonical-vars">:root{${declarations}}</style>`;
+}
+
+/**
+ * Maps a token CSS variable to its Tailwind v4 equivalent namespace.
+ * Tailwind v4 generates utility classes from --color-* and --font-family-* variables.
+ */
+function toTailwindVar(cssVar: string, category: string): string {
+  const name = cssVar.replace(/^--/, "");
+  if (category === "color") {
+    // Already namespaced → use as-is; else add --color- prefix
+    if (name.startsWith("color-")) return `--${name}`;
+    return `--color-${name}`;
+  }
+  if (category === "typography") {
+    if (name.startsWith("font-family-") || name.startsWith("font-")) return `--font-family-${name.replace(/^font-family-|^font-/, "")}`;
+    return `--${name}`;
+  }
+  return `--${name}`;
+}
+
+/**
+ * Builds the raw CSS variable declarations string (for the <style> block in head).
+ * Used for inline style blocks that need the bare var declarations without the
+ * canonical override semantics.
+ */
+function buildThemeCssVars(theme: StudioTheme | null): string {
+  if (!theme || theme.tokens.length === 0) {
+    return "";
+  }
+  return theme.tokens
+    .map((token) => {
+      const variable = token.cssVariable.startsWith("--")
+        ? token.cssVariable
+        : `--${token.cssVariable}`;
+      return `${variable}:${token.value};`;
+    })
+    .join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -372,7 +296,7 @@ function stripPreviewRuntime(html: string): string {
       ""
     )
     .replace(
-      /<script\b[^>]*id=["'](?:tailwind-config|lmnas-tailwind-runtime-config|lmnas-preview-tailwind-config)["'][^>]*>[\s\S]*?<\/script>/gi,
+      /<script\b[^>]*id=["'](?:tailwind-config|lmnas-tailwind-runtime-config|lmnas-preview-tailwind-config)[^"']*["'][^>]*>[\s\S]*?<\/script>/gi,
       ""
     )
     .replace(/<script\b[^>]*>[\s\S]*?tailwind\.config\s*=[\s\S]*?<\/script>/gi, "");
@@ -410,7 +334,7 @@ export function extractBodyHtml(input: string): string {
  * - Also strips preview runtime scripts (Tailwind CDN, tailwind.config scripts).
  *
  * @param input      - Raw imported HTML string.
- * @param runtimeSrc - The host's own Tailwind runtime src (added to block patterns).
+ * @param runtimeSrc - The host's own platform CSS src (added to block patterns).
  */
 export function sanitizeTargetHtml(input: string, runtimeSrc?: string): string {
   const runtimePatterns: string[] = [];
@@ -450,20 +374,6 @@ export function sanitizeTargetHtml(input: string, runtimeSrc?: string): string {
   return extractBodyHtml(ensureHtmlDocument(selectivelyStripped));
 }
 
-function buildThemeCssVars(theme: StudioTheme | null): string {
-  if (!theme || theme.tokens.length === 0) {
-    return "";
-  }
-  return theme.tokens
-    .map((token) => {
-      const variable = token.cssVariable.startsWith("--")
-        ? token.cssVariable
-        : `--${token.cssVariable}`;
-      return `${variable}:${token.value};`;
-    })
-    .join("");
-}
-
 function toPreviewBodyHtml(input: string): string {
   if (input.trim().length === 0) {
     return "";
@@ -471,30 +381,57 @@ function toPreviewBodyHtml(input: string): string {
   return sanitizeTargetHtml(input);
 }
 
+// ---------------------------------------------------------------------------
+// Factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a PlatformPreviewAssets object pointing to the Vite dev server CSS.
+ * In production, pass the CDN/origin URL of the compiled platform CSS.
+ *
+ * @param origin - The app's origin (e.g. "http://localhost:5173"). Defaults to Vite dev server.
+ */
 export function createStaticPlatformPreviewAssets(origin?: string): PlatformPreviewAssets {
-  const href = origin
-    ? `${origin.replace(/\/$/, "")}/studio-runtime.css`
-    : "/studio-runtime.css";
+  const base = origin ? origin.replace(/\/$/, "") : "http://localhost:5173";
   return {
-    headMarkup: `<link rel="stylesheet" href="${href}">`,
-    tailwindRuntimeSrc: DEFAULT_TAILWIND_RUNTIME_SRC
+    platformCssSrc: `${base}/src/style.css`,
+    headMarkup: ""
   };
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — buildPlatformTargetDocument with sourceTailwindConfig
+// Step 3 — buildPlatformTargetDocument (CDN-Free)
 // ---------------------------------------------------------------------------
+
+/**
+ * Detects theme debt from source plugins — logs warnings for unknown plugins.
+ * Known plugins are pre-compiled into the platform CSS via @plugin.
+ * No CDN script injection.
+ */
+function detectPluginThemeDebt(sourcePlugins: unknown[]): void {
+  for (const plugin of sourcePlugins) {
+    if (typeof plugin === "string" && !KNOWN_TAILWIND_PLUGINS.has(plugin)) {
+      console.warn(
+        `[LMNAs Import POC] Theme debt: unknown Tailwind plugin "${plugin}" ` +
+          `is not pre-compiled into the platform CSS. ` +
+          `Add @plugin "${plugin}" to src/style.css to resolve.`
+      );
+    }
+  }
+}
 
 /**
  * Builds a complete HTML document for the target (right) preview iframe.
  *
- * Step 3 additions:
- * - Accepts `sourceTailwindConfig` and threads it into `buildTailwindRuntimeConfig`.
- * - Detects known Tailwind plugin names in `sourceTailwindConfig.plugins` and
- *   injects their CDN <script> tags BEFORE the main Tailwind runtime.
- * - Unknown/custom plugin names are logged as theme debt warnings.
+ * CDN-Free approach:
+ * - Links to the app's compiled platform CSS (Tailwind v4 compiled utilities + default tokens).
+ * - Injects forwarded source stylesheets BEFORE the platform CSS (so platform @theme vars override).
+ * - Injects <style id="lmnas-canonical-vars"> at the END of <body> — last in cascade,
+ *   so canonical StudioTheme tokens always win over any source :root declarations.
+ * - NO cdn.tailwindcss.com script, NO window.tailwind.config.
  *
- * The canonical StudioTheme is never mutated — config is rebuilt fresh each call.
+ * CSS cascade in target iframe:
+ *   [forwarded source links] → [platform CSS with @theme defaults] → [canonical vars override]
  */
 export function buildPlatformTargetDocument(params: {
   bodyHtml: string;
@@ -506,33 +443,15 @@ export function buildPlatformTargetDocument(params: {
   sourceTailwindConfig?: Record<string, unknown>;
 }): string {
   const htmlClass = params.theme?.darkMode ? "dark" : "";
-  const cssVars = buildThemeCssVars(params.theme);
-  const runtimeSrc = params.hostAssets.tailwindRuntimeSrc ?? DEFAULT_TAILWIND_RUNTIME_SRC;
 
-  // All body values derived from theme tokens — no inline literals
-  const backgroundLight = themeTokenValue(
-    params.theme,
-    ["background-light", "surface-light", "surface", "background", "bg"],
-    "#f6f6f8",
-    1
-  );
-  const backgroundDark = themeTokenValue(
-    params.theme,
-    ["background-dark", "surface-dark", "background", "bg"],
-    "#101622",
-    2
-  );
-  const textLight = themeTokenValue(
-    params.theme,
-    ["text-light", "foreground-light", "text", "foreground"],
-    "#0f172a"
-  );
-  const textDark = themeTokenValue(
-    params.theme,
-    ["text-dark", "foreground-dark", "text", "foreground"],
-    "#e2e8f0"
-  );
+  // ── Plugin theme debt detection (no CDN injection — plugins must be in platform CSS) ─
+  const sourceTailwindConfig = params.sourceTailwindConfig ?? {};
+  const sourcePlugins: unknown[] = Array.isArray(sourceTailwindConfig["plugins"])
+    ? (sourceTailwindConfig["plugins"] as unknown[])
+    : [];
+  detectPluginThemeDebt(sourcePlugins);
 
+  // ── Prepare body fragments ────────────────────────────────────────────────
   const cleanedBodyHtml = stripPreviewRuntime(params.bodyHtml);
   const cleanedBeforeBodyHtml = params.beforeBodyHtml
     ? toPreviewBodyHtml(params.beforeBodyHtml)
@@ -541,6 +460,9 @@ export function buildPlatformTargetDocument(params: {
     ? toPreviewBodyHtml(params.afterBodyHtml)
     : "";
 
+  // ── Forwarded source stylesheets ──────────────────────────────────────────
+  // These come BEFORE the platform CSS so source vars are lower-priority,
+  // and the canonical override at end of body is the final authority.
   const additionalStylesheets = Array.from(
     new Set(
       (params.additionalStylesheetHrefs ?? [])
@@ -551,37 +473,34 @@ export function buildPlatformTargetDocument(params: {
     .map((href) => `<link rel="stylesheet" href="${href}">`)
     .join("");
 
-  // ── Step 3: detect known plugins and inject CDN scripts ──────────────────
-  const sourceTailwindConfig = params.sourceTailwindConfig ?? {};
-  const sourcePlugins: unknown[] = Array.isArray(sourceTailwindConfig["plugins"])
-    ? (sourceTailwindConfig["plugins"] as unknown[])
-    : [];
+  // ── Canonical CSS vars block — injected at end of body ────────────────────
+  // Last in document order → wins over any source :root declarations.
+  const canonicalVarsBlock = buildCanonicalCssVarsBlock(params.theme);
 
-  const pluginScriptTags = resolvePluginCdnScriptTags(sourcePlugins);
-
-  // ── Build merged tailwind config script ───────────────────────────────────
-  const tailwindConfigScript = buildTailwindRuntimeConfig(params.theme, sourceTailwindConfig);
+  // ── Small inline style for structural (non-theme) rules ───────────────────
+  const cssVars = buildThemeCssVars(params.theme);
+  const structuralStyle = [
+    `<style>`,
+    cssVars ? `:root{${cssVars}}` : "",
+    `html,body{margin:0;padding:0;min-height:100%}`,
+    `.lmnas-preview-shell{display:block}`,
+    `.lmnas-target-main{display:block}`,
+    `</style>`
+  ].join("");
 
   return [
     `<!doctype html><html class="${htmlClass}" lang="en"><head>`,
     `<meta charset="utf-8"/>`,
     `<meta name="viewport" content="width=device-width,initial-scale=1"/>`,
     params.hostAssets.headMarkup,
-    // Additional filtered source stylesheets placed BEFORE Tailwind CDN
+    // 1. Forwarded source stylesheets (fonts, source CSS vars) before platform CSS
     additionalStylesheets,
-    `<style>`,
-    `:root{${cssVars}}`,
-    `html,body{margin:0;padding:0;min-height:100%}`,
-    `body{font-family:var(--font-display,"Manrope"),"Segoe UI",sans-serif;background:${backgroundLight};color:${textLight}}`,
-    `html.dark body{background:${backgroundDark};color:${textDark}}`,
-    `.lmnas-preview-shell{display:block}`,
-    `.lmnas-target-main{display:block}`,
-    `</style>`,
-    tailwindConfigScript,
-    // Known plugin CDN scripts BEFORE the main Tailwind runtime
-    pluginScriptTags,
-    `<script src="${runtimeSrc}"><\/script>`,
+    // 2. Structural style (layout, non-theme)
+    structuralStyle,
+    // 3. Platform compiled CSS last in head — canonical @theme defaults
+    `<link rel="stylesheet" href="${params.hostAssets.platformCssSrc}">`,
     `</head>`,
+    // body — uses Tailwind v4 utility classes from compiled platform CSS
     `<body class="bg-background-light text-foreground-light dark:bg-background-dark dark:text-foreground-dark font-display antialiased">`,
     cleanedBeforeBodyHtml
       ? `<div class="lmnas-preview-shell">${cleanedBeforeBodyHtml}</div>`
@@ -590,36 +509,14 @@ export function buildPlatformTargetDocument(params: {
     cleanedAfterBodyHtml
       ? `<div class="lmnas-preview-shell">${cleanedAfterBodyHtml}</div>`
       : "",
+    // 4. Canonical vars override at very end of body — always wins
+    canonicalVarsBlock,
     `</body></html>`
   ].join("");
 }
 
-/**
- * Resolves CDN <script> tags for known Tailwind plugins found in the source
- * plugins array. Unknown plugin names are logged as theme debt warnings.
- *
- * Returns the concatenated script tags string (may be empty).
- */
-function resolvePluginCdnScriptTags(sourcePlugins: unknown[]): string {
-  const scriptTags: string[] = [];
-
-  for (const plugin of sourcePlugins) {
-    const pluginName = typeof plugin === "string" ? plugin : null;
-    if (pluginName) {
-      const cdnSrc = KNOWN_TAILWIND_PLUGIN_CDN[pluginName];
-      if (cdnSrc) {
-        scriptTags.push(`<script src="${cdnSrc}"><\/script>`);
-      } else {
-        // Log as theme debt — unknown plugin cannot be auto-resolved from CDN
-        console.warn(
-          `[LMNAs Import POC] Theme debt: unknown Tailwind plugin "${pluginName}" ` +
-            `has no known CDN equivalent. It will not be injected into the target preview.`
-        );
-      }
-    }
-  }
-
-  return scriptTags.join("");
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -630,7 +527,8 @@ function resolvePluginCdnScriptTags(sourcePlugins: unknown[]): string {
  * Builds an HTML document for a single block proposal in the target preview.
  *
  * Step 1: accepts additionalStylesheetHrefs (filtered source stylesheets).
- * Step 3: accepts sourceTailwindConfig (extracted from import payload).
+ * Step 2+3: accepts sourceTailwindConfig (extracted from import payload);
+ *           used for plugin theme debt detection.
  */
 export function buildPlatformBlockPreviewDocument(params: {
   proposalHtml: string;
@@ -651,3 +549,6 @@ export function buildPlatformBlockPreviewDocument(params: {
     sourceTailwindConfig: params.sourceTailwindConfig
   });
 }
+
+// Re-export isRecord for helpers that use it
+export { isRecord };

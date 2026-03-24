@@ -216,7 +216,7 @@ export function resolveProposalTargetPreviewHtml(params: {
     "stylesheets",
     params.importMaster?.sourceBaseUrl
   );
-  const runtimeSrc = params.hostAssets.tailwindRuntimeSrc ?? undefined;
+  const runtimeSrc = params.hostAssets.platformCssSrc;
   const additionalStylesheetHrefs = filterSourceStylesheetsByUrl(rawStylesheets, runtimeSrc);
 
   // Step 2: extract source Tailwind config from the import master's source HTML

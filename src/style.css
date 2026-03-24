@@ -1,0 +1,51 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@plugin "@tailwindcss/forms";
+
+/**
+ * Canonical LMNAs Studio default theme.
+ *
+ * These @theme variables:
+ *   1. Define the DEFAULT token values baked into the compiled platform CSS
+ *   2. Generate utility classes: bg-primary, text-foreground-light, font-display, etc.
+ *   3. Are overridden at runtime by injecting a <style id="lmnas-canonical-vars">
+ *      block at the END of the target preview <body>, so the active StudioTheme
+ *      always wins — no CDN, no window.tailwind.config, pure CSS cascade.
+ */
+@theme {
+  /* ── Color tokens ─────────────────────────────────────────────────────── */
+  --color-primary:           #4f8ef7;
+  --color-background-light:  #f8fafc;
+  --color-background-dark:   #0f172a;
+  --color-foreground-light:  #1e293b;
+  --color-foreground-dark:   #e2e8f0;
+
+  /* ── Typography tokens ────────────────────────────────────────────────── */
+  --font-family-display: Inter, ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Border radius tokens ─────────────────────────────────────────────── */
+  --radius-sm:   0.25rem;
+  --radius-md:   0.5rem;
+  --radius-lg:   0.75rem;
+  --radius-full: 9999px;
+}
+
+/* ── Base layer additions (structural, non-theme) ────────────────────────── */
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+  }
+
+  .lmnas-preview-shell { display: block; }
+  .lmnas-target-main   { display: block; }
+}
+
+/* ── App shell styles (demo UI itself, not preview iframes) ──────────────── */
+@layer components {
+  .app-surface  { @apply bg-zinc-950; }
+  .app-panel    { @apply bg-zinc-900 border border-zinc-800; }
+  .app-text     { @apply text-zinc-200; }
+  .app-muted    { @apply text-zinc-500; }
+}

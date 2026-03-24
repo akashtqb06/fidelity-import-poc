@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Plugin Overload Dashboard — Worst Case</title>
+
+  <!--
+    WORST CASE: Everything At Once
+    - @tailwindcss/typography (known ✓)
+    - @tailwindcss/forms (known ✓)
+    - @tailwindcss/container-queries (known ✓)
+    - my-custom-tokens (UNKNOWN ✗ — theme debt)
+    - radix-colors-plugin (UNKNOWN ✗ — theme debt)
+    - Custom screens: "3xl", "4xl"
+    - Custom animations & keyframes
+    - Multiple external links (fonts, icons, custom CSS)
+    - deep theme.extend with 20+ color tokens
+    - Tailwind v3-style window.tailwind.config
+  -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap">
+
+  <!-- Source CDN with all known plugins -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    {
+      darkMode: "class",
+      plugins: ["typography", "forms", "container-queries", "my-custom-tokens", "radix-colors-plugin"],
+      theme: {
+        screens: {
+          xs:  "480px",
+          sm:  "640px",
+          md:  "768px",
+          lg:  "1024px",
+          xl:  "1280px",
+          "2xl": "1536px",
+          "3xl": "1920px",
+          "4xl": "2560px"
+        },
+        extend: {
+          colors: {
+            brand:        "#6366f1",
+            "brand-dim":  "#1e1b4b",
+            "brand-text": "#a5b4fc",
+            success:      "#22c55e",
+            warn:         "#f59e0b",
+            danger:       "#ef4444",
+            neutral:      "#6b7280",
+            surface:      "#18181b",
+            "surface-2":  "#27272a",
+            "surface-3":  "#3f3f46",
+            canvas:       "#09090b",
+            ink:          "#fafafa",
+            "ink-dim":    "#a1a1aa",
+            "ink-faint":  "#52525b",
+
+            primary:             "#6366f1",
+            "background-light":  "#ffffff",
+            "background-dark":   "#09090b",
+            "foreground-light":  "#18181b",
+            "foreground-dark":   "#fafafa"
+          },
+          fontFamily: {
+            display: ["Geist", "sans-serif"],
+            mono:    ["Geist Mono", "monospace"]
+          },
+          animation: {
+            "slide-up":    "slide-up 0.4s ease-out",
+            "fade-in":     "fade-in 0.3s ease-out",
+            "pulse-glow":  "pulse-glow 2s ease-in-out infinite",
+            "bar-fill":    "bar-fill 1.2s ease-out forwards"
+          },
+          keyframes: {
+            "slide-up": {
+              from: { transform: "translateY(12px)", opacity: "0" },
+              to:   { transform: "translateY(0)",    opacity: "1" }
+            },
+            "fade-in": {
+              from: { opacity: "0" },
+              to:   { opacity: "1" }
+            },
+            "pulse-glow": {
+              "0%,100%": { "box-shadow": "0 0 0 0 rgba(99,102,241,0)" },
+              "50%":     { "box-shadow": "0 0 0 8px rgba(99,102,241,0.15)" }
+            },
+            "bar-fill": {
+              from: { width: "0%" },
+              to:   { width: "var(--bar-w)" }
+            }
+          },
+          borderRadius: {
+            xs:   "4px",
+            sm:   "6px",
+            md:   "10px",
+            lg:   "14px",
+            xl:   "20px",
+            "2xl": "28px"
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #09090b; color: #fafafa; font-family: "Geist", sans-serif; min-height: 100vh; }
+
+    /* Source-specific structural CSS */
+    .stat-bar-track { height: 6px; background: #27272a; border-radius: 9999px; overflow: hidden; }
+    .stat-bar-fill  { height: 100%; border-radius: 9999px; transition: width 1.2s ease-out; }
+
+    .kbd { display: inline-flex; align-items: center; padding: 2px 6px; background: #27272a;
+           border: 1px solid #3f3f46; border-radius: 4px; font-family: "Geist Mono", monospace;
+           font-size: 11px; color: #a1a1aa; }
+
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.online  { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+    .status-dot.warn    { background: #f59e0b; }
+    .status-dot.danger  { background: #ef4444; }
+  </style>
+</head>
+<body class="bg-canvas text-ink">
+
+  <!-- Dashboard layout -->
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 flex-shrink-0 flex flex-col border-r border-surface-2 bg-surface/50 pt-5">
+      <div class="px-5 mb-8">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-md bg-brand flex items-center justify-center">
+            <span class="text-white font-mono font-black text-sm">P</span>
+          </div>
+          <span class="font-bold text-ink text-base">PlatformOS</span>
+        </div>
+      </div>
+
+      <nav class="flex-1 px-3 space-y-1 text-sm">
+        <div class="text-ink-faint text-xs font-semibold uppercase tracking-wider px-3 mb-2">Analytics</div>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-brand/10 text-brand-text font-medium">
+          <span class="w-4 h-4 rounded bg-brand/20 flex items-center justify-center text-[10px]">◉</span> Overview
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-ink-dim hover:bg-surface-2 hover:text-ink transition-colors">
+          <span class="w-4 h-4 rounded bg-surface-3/40 flex items-center justify-center text-[10px]">◈</span> Traffic
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-ink-dim hover:bg-surface-2 hover:text-ink transition-colors">
+          <span class="w-4 h-4 rounded bg-surface-3/40 flex items-center justify-center text-[10px]">⬡</span> Revenue
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-ink-dim hover:bg-surface-2 hover:text-ink transition-colors">
+          <span class="w-4 h-4 rounded bg-surface-3/40 flex items-center justify-center text-[10px]">◆</span> Users
+        </a>
+
+        <div class="text-ink-faint text-xs font-semibold uppercase tracking-wider px-3 mb-2 mt-6">System</div>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-ink-dim hover:bg-surface-2 hover:text-ink transition-colors">
+          <span class="w-4 h-4 rounded bg-surface-3/40 flex items-center justify-center text-[10px]">⚙</span> Settings
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-ink-dim hover:bg-surface-2 hover:text-ink transition-colors">
+          <span class="w-4 h-4 rounded bg-surface-3/40 flex items-center justify-center text-[10px]">🔑</span> API Keys
+        </a>
+      </nav>
+
+      <!-- Plugin status panel (only in source) -->
+      <div class="p-4 border-t border-surface-2 mt-auto">
+        <div class="text-xs text-ink-faint font-mono mb-2">Plugins loaded</div>
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 text-xs">
+            <div class="status-dot online"></div>
+            <span class="text-ink-dim">typography</span>
+            <span class="text-success text-[10px] ml-auto">✓ known</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <div class="status-dot online"></div>
+            <span class="text-ink-dim">forms</span>
+            <span class="text-success text-[10px] ml-auto">✓ known</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <div class="status-dot online"></div>
+            <span class="text-ink-dim">container-queries</span>
+            <span class="text-success text-[10px] ml-auto">✓ known</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <div class="status-dot warn"></div>
+            <span class="text-ink-dim">my-custom-tokens</span>
+            <span class="text-warn text-[10px] ml-auto">⚠ debt</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <div class="status-dot danger"></div>
+            <span class="text-ink-dim">radix-colors-plugin</span>
+            <span class="text-danger text-[10px] ml-auto">⚠ debt</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 overflow-y-auto">
+      <div class="p-8">
+
+        <!-- Top row -->
+        <div class="flex items-center justify-between mb-8">
+          <div>
+            <h1 class="text-2xl font-bold text-ink">Platform Overview</h1>
+            <p class="text-sm text-ink-dim mt-1">Everything-at-once worst case · 5 plugins · 8 custom screens</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 border border-surface-3 text-xs text-ink-dim">
+              <div class="status-dot online"></div>
+              All systems operational
+            </div>
+            <button class="px-4 py-2 bg-brand text-white rounded-lg text-sm font-semibold hover:bg-brand/90 transition-colors animate-pulse-glow">
+              New Report
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI cards -->
+        <div class="grid grid-cols-4 gap-4 mb-8">
+          <div class="bg-surface rounded-xl p-5 border border-surface-2 hover:border-brand/30 transition-all">
+            <div class="text-xs text-ink-faint font-mono uppercase tracking-widest mb-4">MRR</div>
+            <div class="text-3xl font-black text-ink mb-1">$48.2K</div>
+            <div class="flex items-center gap-1.5 text-xs">
+              <span class="text-success">↑ 12.4%</span>
+              <span class="text-ink-faint">vs last month</span>
+            </div>
+          </div>
+          <div class="bg-surface rounded-xl p-5 border border-surface-2 hover:border-brand/30 transition-all">
+            <div class="text-xs text-ink-faint font-mono uppercase tracking-widest mb-4">Active Users</div>
+            <div class="text-3xl font-black text-ink mb-1">12,847</div>
+            <div class="flex items-center gap-1.5 text-xs">
+              <span class="text-success">↑ 8.1%</span>
+              <span class="text-ink-faint">vs last month</span>
+            </div>
+          </div>
+          <div class="bg-surface rounded-xl p-5 border border-surface-2 hover:border-warn/30 transition-all">
+            <div class="text-xs text-ink-faint font-mono uppercase tracking-widest mb-4">Churn Rate</div>
+            <div class="text-3xl font-black text-warn mb-1">2.3%</div>
+            <div class="flex items-center gap-1.5 text-xs">
+              <span class="text-danger">↑ 0.4%</span>
+              <span class="text-ink-faint">needs attention</span>
+            </div>
+          </div>
+          <div class="bg-surface rounded-xl p-5 border border-surface-2 hover:border-success/30 transition-all">
+            <div class="text-xs text-ink-faint font-mono uppercase tracking-widest mb-4">NPS Score</div>
+            <div class="text-3xl font-black text-success mb-1">74</div>
+            <div class="flex items-center gap-1.5 text-xs">
+              <span class="text-success">↑ 6pts</span>
+              <span class="text-ink-faint">excellent range</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="grid grid-cols-3 gap-6 mb-8">
+          <!-- Revenue chart (simplified bar chart) -->
+          <div class="col-span-2 bg-surface rounded-xl p-6 border border-surface-2">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="font-semibold text-ink">Revenue Trend</h3>
+              <div class="flex gap-2">
+                <span class="kbd">7d</span>
+                <span class="kbd">30d</span>
+                <span class="kbd bg-brand/10 text-brand-text border-brand/20">90d</span>
+              </div>
+            </div>
+            <div class="flex items-end gap-2 h-32">
+              <div class="flex-1 flex items-end gap-1.5">
+                <div class="w-full flex flex-col items-center gap-1">
+                  <div class="w-full bg-brand/40 hover:bg-brand transition-colors rounded-t" style="height:40%"></div>
+                  <span class="text-[10px] text-ink-faint">Jan</span>
+                </div>
+                <div class="w-full flex flex-col items-center gap-1">
+                  <div class="w-full bg-brand/40 hover:bg-brand transition-colors rounded-t" style="height:55%"></div>
+                  <span class="text-[10px] text-ink-faint">Feb</span>
+                </div>
+                <div class="w-full flex flex-col items-center gap-1">
+                  <div class="w-full bg-brand/40 hover:bg-brand transition-colors rounded-t" style="height:48%"></div>
+                  <span class="text-[10px] text-ink-faint">Mar</span>
+                </div>
+                <div class="w-full flex flex-col items-center gap-1">
+                  <div class="w-full bg-brand/40 hover:bg-brand transition-colors rounded-t" style="height:70%"></div>
+                  <span class="text-[10px] text-ink-faint">Apr</span>
+                </div>
+                <div class="w-full flex flex-col items-center gap-1">
+                  <div class="w-full bg-brand/40 hover:bg-brand transition-colors rounded-t" style="height:62%"></div>
+                  <span class="text-[10px] text-ink-faint">May</span>
+                </div>
+                <div class="w-full flex flex-col items-center gap-1">
+                  <div class="w-full bg-brand hover:bg-brand/80 transition-colors rounded-t" style="height:88%"></div>
+                  <span class="text-[10px] text-ink-faint font-bold text-brand-text">Jun</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Donut-ish breakdown -->
+          <div class="bg-surface rounded-xl p-6 border border-surface-2">
+            <h3 class="font-semibold text-ink mb-6">Revenue Mix</h3>
+            <div class="space-y-5">
+              <div>
+                <div class="flex justify-between text-xs mb-2">
+                  <span class="text-ink-dim">Enterprise</span>
+                  <span class="text-ink font-mono">64%</span>
+                </div>
+                <div class="stat-bar-track">
+                  <div class="stat-bar-fill bg-brand" style="width:64%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-2">
+                  <span class="text-ink-dim">Growth</span>
+                  <span class="text-ink font-mono">24%</span>
+                </div>
+                <div class="stat-bar-track">
+                  <div class="stat-bar-fill" style="width:24%;background:#22c55e"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-2">
+                  <span class="text-ink-dim">Starter</span>
+                  <span class="text-ink font-mono">12%</span>
+                </div>
+                <div class="stat-bar-track">
+                  <div class="stat-bar-fill" style="width:12%;background:#f59e0b"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-6 pt-5 border-t border-surface-2">
+              <div class="text-xs text-ink-faint mb-2">Custom screen test</div>
+              <div class="text-xs font-mono text-ink-dim">
+                <span class="text-success">3xl: 1920px</span> · <span class="text-warn">4xl: 2560px</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prose section (tests @tailwindcss/typography) -->
+        <div class="bg-surface rounded-xl p-8 border border-surface-2">
+          <div class="prose prose-invert prose-sm max-w-none">
+            <h2>Release Notes — v3.8.0 <span class="text-brand text-sm font-mono not-prose">typography plugin test</span></h2>
+            <p>This dashboard uses the <code>@tailwindcss/typography</code> plugin for <strong>prose content rendering</strong>.
+            The <em>typography styles</em> are pre-compiled into the platform CSS — no CDN needed.</p>
+            <ul>
+              <li>New <code>container-queries</code> support for responsive sidebar components</li>
+              <li>Forms styled via <code>@tailwindcss/forms</code> plugin — inputs and selects</li>
+              <li>Unknown plugins <code>my-custom-tokens</code> and <code>radix-colors-plugin</code> flagged as theme debt</li>
+            </ul>
+          </div>
+
+          <!-- Forms test (@tailwindcss/forms) -->
+          <div class="mt-6 pt-6 border-t border-surface-2 grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs text-ink-dim font-medium mb-1.5">Report name (forms plugin)</label>
+              <input type="text" class="w-full rounded-lg border-surface-3 bg-surface-2 text-ink text-sm py-2 px-3
+                                       focus:ring-brand focus:border-brand" placeholder="Q4 Analysis…">
+            </div>
+            <div>
+              <label class="block text-xs text-ink-dim font-medium mb-1.5">Time period</label>
+              <select class="w-full rounded-lg border-surface-3 bg-surface-2 text-ink text-sm py-2 px-3
+                             focus:ring-brand focus:border-brand">
+                <option>Last 30 days</option>
+                <option>Last quarter</option>
+                <option>Year to date</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+</body>
+</html>

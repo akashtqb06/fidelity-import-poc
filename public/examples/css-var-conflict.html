@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>CSS Variable Battle — Worst Case</title>
+
+  <!--
+    WORST CASE: CSS Variable Conflict
+    Source aggressively defines the SAME CSS custom properties that LMNAs canonical
+    theme uses (--color-primary, --color-background-light, etc.) with completely
+    different values. The source also re-declares them:
+      1. In a <link> stylesheet (:root block)
+      2. In an inline <style> in <head>
+      3. In an inline <style> injected mid-<body> (via script-like approach)
+      4. Using @media prefers-color-scheme
+
+    EXPECTED BEHAVIOUR in target:
+      - <style id="lmnas-canonical-vars"> is injected at END of body
+      - Canonical values (source theme) ALWAYS WIN regardless of source declarations
+      - The component's layout and structure are preserved; only brand colors change
+  -->
+
+  <!-- Source Google Font (should be forwarded to target) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap">
+
+  <!-- Source CDN Tailwind (fine for source, stripped from target) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#e11d48",
+            background: "#fff1f2",
+            foreground: "#881337",
+            "background-light": "#fff1f2",
+            "background-dark": "#1c0a0e",
+            "foreground-light": "#881337",
+            "foreground-dark": "#fda4af"
+          },
+          fontFamily: {
+            display: ["Syne", "sans-serif"],
+            body: ["DM Sans", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- BATTLE #1: source tries to define vars in <head> inline style -->
+  <style>
+    /* Source overrides — will these survive into target? They should NOT for the canonical keys */
+    :root {
+      --color-primary: #e11d48;              /* rose — source brand */
+      --color-background-light: #fff1f2;     /* rose tint */
+      --color-background-dark:  #1c0a0e;     /* dark rose */
+      --color-foreground-light: #881337;     /* deep rose text */
+      --color-foreground-dark:  #fda4af;     /* light rose text */
+      --color-surface:  #ffe4e6;             /* unique source var (no canonical equivalent) */
+      --color-surface-dark: #2d0a10;         /* unique source var */
+      --font-family-display: "Syne", sans-serif;
+
+      /* Source-specific vars NOT in canonical — should survive */
+      --source-gradient-h: linear-gradient(135deg, #e11d48 0%, #f97316 100%);
+      --source-glow: 0 0 40px rgba(225,29,72,0.3);
+      --source-grid-size: 40px;
+    }
+
+    /* BATTLE #2: source tries to override in @media (these also lose to end-of-body override) */
+    @media (min-width: 1px) {
+      :root { --color-primary: #e11d48 !important; }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--color-background-light, #fff1f2);
+      color: var(--color-foreground-light, #881337);
+      font-family: var(--font-family-display, "Syne"), sans-serif;
+    }
+
+    /* Background grid pattern using source var */
+    .bg-grid {
+      background-image:
+        linear-gradient(rgba(225,29,72,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(225,29,72,0.06) 1px, transparent 1px);
+      background-size: var(--source-grid-size) var(--source-grid-size);
+    }
+
+    /* Some source-specific utility classes that compiled CSS won't have */
+    .text-source-gradient {
+      background: var(--source-gradient-h);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+  </style>
+</head>
+<body class="bg-background-light min-h-screen bg-grid">
+
+  <!-- BATTLE #3: mid-body <style> re-declaration -->
+  <style>
+    :root {
+      --color-primary: #e11d48 !important; /* Source desperately tries to keep its primary */
+    }
+  </style>
+
+  <section class="relative overflow-hidden">
+    <div class="max-w-5xl mx-auto px-6 py-24">
+
+      <!-- Hero -->
+      <div class="text-center mb-16">
+        <div class="inline-flex items-center gap-2 bg-rose-100 text-rose-700 px-4 py-1.5 rounded-full text-sm font-semibold mb-6 border border-rose-200">
+          <span>⚔</span> CSS Variable Conflict Test
+        </div>
+        <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-6" style="font-family: var(--font-family-display, 'Syne')">
+          <span class="text-source-gradient">Will the</span><br>
+          <span class="text-foreground-light">Source Win?</span>
+        </h1>
+        <p class="text-xl text-foreground-light/70 max-w-2xl mx-auto font-body leading-relaxed">
+          This component declares <code class="bg-rose-100 text-rose-700 px-1 rounded">--color-primary: #e11d48</code>
+          in multiple places. In the <strong class="text-foreground-light">source preview</strong>, it renders rose red.
+          In the <strong class="text-foreground-light">target preview</strong>, the canonical StudioTheme wins.
+        </p>
+      </div>
+
+      <!-- Color battle cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div class="bg-primary rounded-2xl p-8 text-white" style="box-shadow: var(--source-glow)">
+          <div class="text-4xl mb-3">🎨</div>
+          <h3 class="text-xl font-bold mb-2">bg-primary</h3>
+          <p class="text-sm opacity-80">
+            Source: rose #e11d48<br>
+            <code class="bg-black/20 px-1 rounded text-xs">var(--color-primary)</code>
+          </p>
+          <div class="mt-4 text-xs font-mono opacity-60">--color-primary picks up canonical</div>
+        </div>
+
+        <div class="bg-background-light rounded-2xl p-8 border-2 border-foreground-light/10">
+          <div class="text-4xl mb-3">🏠</div>
+          <h3 class="text-xl font-bold text-foreground-light mb-2">bg-background-light</h3>
+          <p class="text-sm text-foreground-light/70">
+            Source: rose tint<br>
+            <code class="bg-foreground-light/10 px-1 rounded text-xs text-foreground-light">var(--color-background-light)</code>
+          </p>
+          <div class="mt-4 text-xs font-mono text-foreground-light/40">canonical overrides</div>
+        </div>
+
+        <div class="bg-foreground-light rounded-2xl p-8 text-background-light">
+          <div class="text-4xl mb-3">🔤</div>
+          <h3 class="text-xl font-bold mb-2">bg-foreground-light</h3>
+          <p class="text-sm opacity-80">
+            Source: deep rose #881337<br>
+            <code class="bg-white/20 px-1 rounded text-xs">var(--color-foreground-light)</code>
+          </p>
+          <div class="mt-4 text-xs font-mono opacity-60">canonical wins here too</div>
+        </div>
+      </div>
+
+      <!-- Source-specific vars section (these SHOULD survive since no canonical equivalent) -->
+      <div class="rounded-2xl p-8 mb-8" style="background: var(--color-surface, #ffe4e6); border: 2px solid rgba(225,29,72,0.2)">
+        <h2 class="text-2xl font-bold text-foreground-light mb-3">Source-only vars survive ✓</h2>
+        <p class="text-foreground-light/70 mb-4">
+          These CSS variables don't conflict with canonical tokens so they render fine in both panes:
+          <code class="bg-foreground-light/10 px-1 rounded text-sm">--source-gradient-h</code>,
+          <code class="bg-foreground-light/10 px-1 rounded text-sm">--source-glow</code>,
+          <code class="bg-foreground-light/10 px-1 rounded text-sm">--color-surface</code>.
+        </p>
+        <div class="inline-flex items-center gap-3 px-6 py-3 rounded-xl text-white font-bold"
+             style="background: var(--source-gradient-h); box-shadow: var(--source-glow)">
+          Source-specific gradient → unchanged
+        </div>
+      </div>
+
+      <!-- Technical explainer -->
+      <div class="rounded-2xl p-6" style="background: rgba(225,29,72,0.04); border: 1px solid rgba(225,29,72,0.1)">
+        <h3 class="font-mono text-sm font-bold text-foreground-light/60 mb-3">CASCADE ORDER IN TARGET</h3>
+        <div class="font-mono text-xs text-foreground-light/50 space-y-1">
+          <div>1. forwarded &lt;link&gt; stylesheets (fonts) → source vars land here</div>
+          <div>2. &lt;style&gt; structural block in &lt;head&gt; → source var redeclarations</div>
+          <div>3. platform CSS (Tailwind v4 compiled) → canonical @theme defaults</div>
+          <div class="text-primary font-bold">4. &lt;style id="lmnas-canonical-vars"&gt; END OF BODY → canonical WINS 🏆</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</body>
+</html>

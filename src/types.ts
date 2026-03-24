@@ -49,6 +49,14 @@ export interface StudioImportMaster {
 }
 
 export type PlatformPreviewAssets = {
+  /**
+   * URL of the app's compiled platform CSS (Tailwind v4 output).
+   * This is served by the Vite dev server in development
+   * (e.g. "http://localhost:5173/src/style.css") and by the CDN/app
+   * origin in production. The target preview iframe links to this URL
+   * instead of cdn.tailwindcss.com.
+   */
+  platformCssSrc: string;
+  /** Any extra markup to inject into the target document <head>. */
   headMarkup: string;
-  tailwindRuntimeSrc: string | null;
 };

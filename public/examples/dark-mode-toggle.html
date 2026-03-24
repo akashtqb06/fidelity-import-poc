@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Dark Mode Toggle — Worst Case</title>
+
+  <!--
+    WORST CASE: JS Dark Mode Toggle with class strategy
+    - Source uses darkMode: "class" — toggled by JS at runtime
+    - Source has extensive dark: variant classes
+    - localStorage persists preference
+    - The JS toggle adds/removes `dark` class from <html>
+
+    In SOURCE: toggle works perfectly (CDN JIT sees the dark: variants)
+    In TARGET:  The <html class="dark"> in source is stripped during body extraction.
+                buildPlatformTargetDocument sets class via params.theme.darkMode.
+                dark: variants compiled into platform CSS will respond correctly
+                BUT the JS toggle inside the iframe won't affect the outer document class —
+                it will still work INSIDE the iframe (srcdoc has its own DOM).
+                This tests whether the dark mode isolation is correct.
+  -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap">
+
+  <!-- @tailwindcss/browser v4 (also gets stripped — tests both CDN formats) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-primary: #8b5cf6;
+      --color-background-light: #ffffff;
+      --color-background-dark: #0c0a1e;
+      --color-foreground-light: #1c1033;
+      --color-foreground-dark: #ede9fe;
+      --font-family-display: "Plus Jakarta Sans", sans-serif;
+    }
+  </style>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Plus Jakarta Sans", sans-serif; transition: background 0.3s, color 0.3s; }
+
+    /* Toggle switch */
+    .toggle-track {
+      width: 48px; height: 26px; background: #d1d5db; border-radius: 9999px;
+      position: relative; cursor: pointer; transition: background 0.2s;
+    }
+    .dark .toggle-track { background: #7c3aed; }
+    .toggle-thumb {
+      width: 20px; height: 20px; background: white; border-radius: 9999px;
+      position: absolute; top: 3px; left: 3px; transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .dark .toggle-thumb { transform: translateX(22px); }
+
+    /* Animated gradient text */
+    .gradient-text {
+      background: linear-gradient(135deg, #8b5cf6, #ec4899, #f97316);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+  </style>
+
+  <!-- Dark mode preference JS — runs before paint to avoid flash -->
+  <script>
+    (function() {
+      var pref = localStorage.getItem("dark-mode");
+      if (pref === "dark" || (!pref && matchMedia("(prefers-color-scheme: dark)").matches)) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    })();
+  </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-foreground-light dark:text-foreground-dark min-h-screen">
+
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-50 border-b border-gray-200 dark:border-purple-900/30
+              bg-white/80 dark:bg-background-dark/80 backdrop-blur-md">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+          <span class="text-white text-sm font-black">◈</span>
+        </div>
+        <span class="font-bold text-foreground-light dark:text-foreground-dark">DarkModeTest</span>
+      </div>
+
+      <!-- Dark mode toggle -->
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-gray-500 dark:text-purple-300" id="mode-label">
+          Dark mode
+        </span>
+        <div class="toggle-track" id="toggle" onclick="toggleDark()" role="switch" aria-label="Toggle dark mode">
+          <div class="toggle-thumb"></div>
+        </div>
+        <span class="text-sm font-medium text-foreground-light dark:text-foreground-dark" id="mode-state">On</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero section -->
+  <section class="max-w-5xl mx-auto px-6 py-20 text-center">
+    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-6
+                bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300
+                border border-purple-200 dark:border-purple-800">
+      <span>☾</span> Dark Mode Toggle — JS Class Strategy
+    </div>
+
+    <h1 class="text-5xl md:text-6xl font-black tracking-tight mb-6">
+      <span class="gradient-text">Worst case:</span><br>
+      <span class="text-foreground-light dark:text-foreground-dark">runtime dark toggle</span>
+    </h1>
+
+    <p class="text-lg text-gray-600 dark:text-purple-300 max-w-2xl mx-auto leading-relaxed mb-10">
+      The toggle uses <code class="bg-gray-100 dark:bg-purple-950 px-1 rounded text-sm">localStorage</code>
+      and JS to add/remove the <code class="bg-gray-100 dark:bg-purple-950 px-1 rounded text-sm">dark</code>
+      class on <code class="bg-gray-100 dark:bg-purple-950 px-1 rounded text-sm">&lt;html&gt;</code>.
+      In the <strong class="text-foreground-light dark:text-foreground-dark">source</strong>, this works.
+      In the <strong class="text-foreground-light dark:text-foreground-dark">target</strong>,
+      the iframe has its own DOM — toggle still works inside the sandboxed iframe.
+    </p>
+
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <button onclick="toggleDark()"
+              class="px-8 py-4 bg-primary text-white font-bold rounded-xl text-lg
+                     hover:bg-primary/90 transition-all shadow-lg shadow-primary/25">
+        Toggle Dark Mode
+      </button>
+      <button class="px-8 py-4 bg-transparent border-2 border-foreground-light dark:border-foreground-dark
+                     text-foreground-light dark:text-foreground-dark font-bold rounded-xl text-lg
+                     hover:bg-foreground-light/5 transition-all">
+        Learn More
+      </button>
+    </div>
+  </section>
+
+  <!-- Cards with dark: variants -->
+  <section class="max-w-5xl mx-auto px-6 pb-20">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <div class="rounded-2xl p-6 border
+                  bg-white dark:bg-purple-950/50
+                  border-gray-200 dark:border-purple-800
+                  hover:shadow-xl hover:shadow-primary/5 transition-all group">
+        <div class="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center mb-4
+                    group-hover:bg-primary/20 dark:group-hover:bg-primary/30 transition-colors">
+          <span class="text-primary text-xl">🎨</span>
+        </div>
+        <h3 class="font-bold text-foreground-light dark:text-foreground-dark mb-2">Adaptive Colors</h3>
+        <p class="text-sm text-gray-600 dark:text-purple-300 leading-relaxed">
+          Every element responds to the dark mode class. Backgrounds, borders, text — all adapt.
+        </p>
+      </div>
+
+      <div class="rounded-2xl p-6 border
+                  bg-white dark:bg-purple-950/50
+                  border-gray-200 dark:border-purple-800
+                  hover:shadow-xl hover:shadow-primary/5 transition-all group">
+        <div class="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center mb-4
+                    group-hover:bg-primary/20 dark:group-hover:bg-primary/30 transition-colors">
+          <span class="text-primary text-xl">🌙</span>
+        </div>
+        <h3 class="font-bold text-foreground-light dark:text-foreground-dark mb-2">Persistent State</h3>
+        <p class="text-sm text-gray-600 dark:text-purple-300 leading-relaxed">
+          localStorage preserves the user's preference across page loads. JS runs before paint.
+        </p>
+      </div>
+
+      <div class="rounded-2xl p-6 border
+                  bg-white dark:bg-purple-950/50
+                  border-gray-200 dark:border-purple-800
+                  hover:shadow-xl hover:shadow-primary/5 transition-all group">
+        <div class="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center mb-4
+                    group-hover:bg-primary/20 dark:group-hover:bg-primary/30 transition-colors">
+          <span class="text-primary text-xl">🖼</span>
+        </div>
+        <h3 class="font-bold text-foreground-light dark:text-foreground-dark mb-2">Iframe Isolation</h3>
+        <p class="text-sm text-gray-600 dark:text-purple-300 leading-relaxed">
+          The target preview iframe has its own <code class="text-xs bg-gray-100 dark:bg-purple-900 px-1 rounded">&lt;html&gt;</code> DOM.
+          Toggle affects only the content of the iframe, not the Studio shell.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Complex dark: table -->
+    <div class="mt-12 rounded-2xl overflow-hidden border border-gray-200 dark:border-purple-800">
+      <div class="px-6 py-4 bg-gray-50 dark:bg-purple-950/70 border-b border-gray-200 dark:border-purple-800">
+        <h3 class="font-semibold text-foreground-light dark:text-foreground-dark">dark: variant matrix</h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 dark:border-purple-800">
+            <th class="text-left px-6 py-3 text-gray-500 dark:text-purple-400 font-medium">Property</th>
+            <th class="text-left px-6 py-3 text-gray-500 dark:text-purple-400 font-medium">Light</th>
+            <th class="text-left px-6 py-3 text-gray-500 dark:text-purple-400 font-medium">Dark</th>
+            <th class="text-left px-6 py-3 text-gray-500 dark:text-purple-400 font-medium">Status in Target</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-purple-900">
+          <tr class="hover:bg-gray-50 dark:hover:bg-purple-950/50 transition-colors">
+            <td class="px-6 py-3 font-mono text-xs text-gray-600 dark:text-purple-300">bg-background-light/dark</td>
+            <td class="px-6 py-3 text-gray-700 dark:text-purple-200">#ffffff</td>
+            <td class="px-6 py-3 text-gray-700 dark:text-purple-200">#0c0a1e (source)</td>
+            <td class="px-6 py-3"><span class="text-xs bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300 px-2 py-0.5 rounded">canonical override</span></td>
+          </tr>
+          <tr class="hover:bg-gray-50 dark:hover:bg-purple-950/50 transition-colors">
+            <td class="px-6 py-3 font-mono text-xs text-gray-600 dark:text-purple-300">dark: variants</td>
+            <td class="px-6 py-3 text-gray-700 dark:text-purple-200">hidden</td>
+            <td class="px-6 py-3 text-gray-700 dark:text-purple-200">visible</td>
+            <td class="px-6 py-3"><span class="text-xs bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 px-2 py-0.5 rounded">class strategy</span></td>
+          </tr>
+          <tr class="hover:bg-gray-50 dark:hover:bg-purple-950/50 transition-colors">
+            <td class="px-6 py-3 font-mono text-xs text-gray-600 dark:text-purple-300">JS toggle</td>
+            <td class="px-6 py-3 text-gray-700 dark:text-purple-200">onclick</td>
+            <td class="px-6 py-3 text-gray-700 dark:text-purple-200">onclick</td>
+            <td class="px-6 py-3"><span class="text-xs bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300 px-2 py-0.5 rounded">isolated to iframe</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>
+    function toggleDark() {
+      var html = document.documentElement;
+      html.classList.toggle("dark");
+      var isDark = html.classList.contains("dark");
+      localStorage.setItem("dark-mode", isDark ? "dark" : "light");
+      var stateEl = document.getElementById("mode-state");
+      if (stateEl) stateEl.textContent = isDark ? "On" : "Off";
+    }
+
+    // Sync toggle state label on load
+    (function() {
+      var isDark = document.documentElement.classList.contains("dark");
+      var stateEl = document.getElementById("mode-state");
+      if (stateEl) stateEl.textContent = isDark ? "On" : "Off";
+    })();
+  </script>
+</body>
+</html>

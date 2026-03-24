@@ -1,0 +1,88 @@
+[
+  {
+    "key": "basic-hero",
+    "title": "Basic Hero",
+    "desc": "Custom brand colors, fonts, tailwind.config",
+    "tags": [
+      { "label": "tailwind.config", "cls": "tag-config" },
+      { "label": "Google Fonts",     "cls": "tag-css" }
+    ]
+  },
+  {
+    "key": "typography-plugin",
+    "title": "Editorial Blog",
+    "desc": "Typography plugin + inline :root CSS vars",
+    "tags": [
+      { "label": "typography", "cls": "tag-plugin" },
+      { "label": ":root vars",  "cls": "tag-css" }
+    ]
+  },
+  {
+    "key": "pricing-dark",
+    "title": "Dark Pricing",
+    "desc": "Custom screens, animations, unknown plugin ⚠",
+    "tags": [
+      { "label": "forms plugin",    "cls": "tag-plugin" },
+      { "label": "unknown plugin",  "cls": "tag-warn" },
+      { "label": "dark",            "cls": "tag-dark" }
+    ]
+  },
+  {
+    "key": "compiled-css-only",
+    "title": "Compiled CSS Only ◈",
+    "desc": "No CDN, no tailwind.config — Next.js export simulation",
+    "tags": [
+      { "label": "no cdn",    "cls": "tag-no-cdn" },
+      { "label": "plain CSS", "cls": "tag-css" }
+    ]
+  },
+  {
+    "key": "code",
+    "title": "TransformerCorp",
+    "desc": "Testimonials page · @tailwindcss/browser v4 · dark class · real-world import",
+    "tags": [
+      { "label": "tw/browser@4", "cls": "tag-config" },
+      { "label": "dark:class",   "cls": "tag-dark" },
+      { "label": "Material Icons", "cls": "tag-css" }
+    ]
+  },
+  {
+    "key": "css-var-conflict",
+    "title": "CSS Var Battle ⚔",
+    "desc": "Source aggressively redefines all canonical CSS vars — canonical must win",
+    "tags": [
+      { "label": "var override",  "cls": "tag-warn" },
+      { "label": "worst case",    "cls": "tag-config" }
+    ]
+  },
+  {
+    "key": "arbitrary-values",
+    "title": "Arbitrary Values Hell",
+    "desc": "100% arbitrary values — surfaces the CDN JIT fidelity gap clearly",
+    "tags": [
+      { "label": "bg-[#hex]",        "cls": "tag-warn" },
+      { "label": "fidelity gap",     "cls": "tag-danger" },
+      { "label": "CDN only",         "cls": "tag-config" }
+    ]
+  },
+  {
+    "key": "everything-at-once",
+    "title": "Plugin Overload 🔥",
+    "desc": "3 known + 2 unknown plugins, 8 custom screens, 15+ color tokens, dashboard UI",
+    "tags": [
+      { "label": "5 plugins",     "cls": "tag-plugin" },
+      { "label": "2× theme debt", "cls": "tag-warn" },
+      { "label": "8 screens",     "cls": "tag-config" }
+    ]
+  },
+  {
+    "key": "dark-mode-toggle",
+    "title": "Dark Mode Toggle 🌙",
+    "desc": "JS class strategy + localStorage + @tailwindcss/browser v4 — iframe isolation test",
+    "tags": [
+      { "label": "darkMode:class", "cls": "tag-dark" },
+      { "label": "JS toggle",      "cls": "tag-config" },
+      { "label": "tw/browser@4",   "cls": "tag-plugin" }
+    ]
+  }
+]
